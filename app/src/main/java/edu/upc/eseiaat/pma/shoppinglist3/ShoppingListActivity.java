@@ -1,5 +1,6 @@
 package edu.upc.eseiaat.pma.shoppinglist3;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -12,7 +13,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import edu.upc.eseiaat.pma.shoppinglist3.R;
@@ -23,10 +28,40 @@ public class ShoppingListActivity extends AppCompatActivity {
     private ArrayList<ShoppingItem> itemList;
     private ShoppingListAdapter adapter;
 
+    private static final String FILENAME = "shopping_list.txt";
+
 
     private ListView list;
     private Button btn_add;
     private EditText edit_item;
+
+    private void writeItemList(){
+
+        //Formato del fichero
+
+        try {
+            FileOutputStream fos = openFileOutput(FILENAME, Context.MODE_PRIVATE);
+            //Tengo que pasar por todos los items
+            for (int i=0; i<itemList.size();i++) {
+                ShoppingItem it = itemList.get(i);
+                //Línia: String;Boolean + salto de línia == %s;%b\n (Hay un item por linea)
+                String line = String.format("%s;%b\n", it.getText(), it.isChecked());
+                //Como guardar el fichero
+                fos.write(line.getBytes());
+            }
+            //Cerramos el fichero
+            fos.close();
+
+            //Los catch me cogen los errores generados en el try
+            //Con los toast informo al usuario de que algo ha ido mal
+        } catch (FileNotFoundException e) {
+            Toast.makeText(this, R.string.cannot_write, Toast.LENGTH_LONG).show();
+        } catch (IOException e) {
+            Toast.makeText(this, R.string.cannot_write, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
