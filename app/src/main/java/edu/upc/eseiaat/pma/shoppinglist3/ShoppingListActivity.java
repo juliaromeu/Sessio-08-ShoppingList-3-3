@@ -6,6 +6,9 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -15,6 +18,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -29,6 +33,8 @@ public class ShoppingListActivity extends AppCompatActivity {
     private ShoppingListAdapter adapter;
 
     private static final String FILENAME = "shopping_list.txt";
+    //Tamaño de la tabla
+    private static final int MAX_BYTES = 8000;
 
 
     private ListView list;
@@ -38,7 +44,6 @@ public class ShoppingListActivity extends AppCompatActivity {
     private void writeItemList(){
 
         //Formato del fichero
-
         try {
             FileOutputStream fos = openFileOutput(FILENAME, Context.MODE_PRIVATE);
             //Tengo que pasar por todos los items
@@ -61,7 +66,39 @@ public class ShoppingListActivity extends AppCompatActivity {
         }
     }
 
-    
+    private void readItemList (){
+        itemList = new ArrayList<>();
+        try {
+            FileInputStream fis = openFileInput(FILENAME);
+            //Crear la tabla para guardar los ficheros
+            byte[] buffer = new byte[MAX_BYTES];
+            int nread = fis.read(buffer);
+            //Confirmar que el fichero no esta vacío para leerlo, sino se satura el programa
+            if (nread > 0) {
+                //Passar el buffer a un string
+                String content = new String (buffer, 0, nread);
+                //Extraer las lineas. Cortar el codigo en cada "\n"=espacio
+                String[] lines = content.split("\n");
+                //Divido cada linea en cada ; passa por cada linea
+                for (String line : lines) {
+                    String[] parts = line.split(";");
+                    itemList.add(new ShoppingItem(parts[0], parts[1].equals("true")));
+                }
+            }
+            fis.close();
+        } catch (FileNotFoundException e) {
+            //EXCEPCIÓN: cuando va buscar el fichero no existe (seguro que pasa cuando se enciende la app x primera vez)
+        } catch (IOException e) {
+            Toast.makeText(this, R.string.cannot_read, Toast.LENGTH_LONG).show();
+        }
+
+    }
+//Cuando la app se para, podemos utilizar onStop para grabar lo que había dentro
+    @Override
+    protected void onStop() {
+        super.onStop();
+        writeItemList();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,11 +114,7 @@ public class ShoppingListActivity extends AppCompatActivity {
         edit_item = (EditText) findViewById(R.id.edit_item);
 
         //CONSTRUIR OBJETO
-        itemList = new ArrayList<>();
-        itemList.add(new ShoppingItem("Patatas"));
-        itemList.add(new ShoppingItem ("Zanahorias"));
-        itemList.add(new ShoppingItem ("Papel WC"));
-        itemList.add(new ShoppingItem ("Copas Danone"));
+      readItemList();
 
         //CREAR ADAPTADOR
         //this = puntero a la actividad actual, hace referencia a ella
@@ -167,4 +200,60 @@ public class ShoppingListActivity extends AppCompatActivity {
         //Le estoy diciendo a la lista que se mueva hasta ahí (última posición)
         list.smoothScrollToPosition(itemList.size()-1);
     }
+
+    //Método para crear el menú y sus opciones
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.options, menu);
+        return true;
+    }
+
+    //Gestionar los clicks del menú
+    public boolean onOptionsItemSelected(MenuItem item) {
+        //Gestionar la selección de un item
+        switch (item.getItemId()) {
+            case R.id.clear_checked:
+                clearChecked();
+                return true;
+            //"En el caso que clicken clear all, llama al método clearAll"
+            case R.id.clear_all:
+                clearAll();
+                //Cuando gestionas la opción de menú siempre tienes que devolver 'true'
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void clearAll() {
+        //Confirmación de que quiere borrarlo all con un cuadro de diálago
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.confirm);
+        builder.setMessage(R.string.confirm_clear_all);
+        builder.setPositiveButton(R.string.clear_all, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                itemList.clear();
+                adapter.notifyDataSetChanged();
+            }
+        });
+        builder.setNegativeButton(android.R.string.cancel, null);
+        builder.create().show();
+    }
+
+    //CREAR METODO: borrar todos los items que están marcados
+    private void clearChecked() {
+        //Utilizamos un while en vez de un for, porque al ir eliminando items los indices 'i' van variando y no se acaban de 'mirar' todos los items
+        //Sólo augmentamos el indice 'i' si no se ha eliminado el item anterior
+        int i = 0;
+        while (i < itemList.size()) {
+            if (itemList.get(i).isChecked()) {
+                itemList.remove(i);
+            } else {
+                i++;
+            }
+        }
+        adapter.notifyDataSetChanged();
+    }
+
 }
